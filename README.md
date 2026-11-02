@@ -1,5 +1,101 @@
 # More than a Hack 2027 — Phase 1: Ball Possession
 
+## Team setup
+
+**The plan:** see [docs/work_sections_plan.md](docs/work_sections_plan.md) for what each work section does,
+the data it needs, and its deadlines.
+
+**The team:**
+
+| Name | Part | Status |
+| --- | --- | --- |
+| Harry | Section 1: Data & validation | Done |
+| Milu | Section 2: Ball & context | To do |
+| Huyen | Section 3: Dead ball | To do |
+| Lam | Section 4: Possession & decoder | To do |
+
+### 1. Install what you need
+
+- **Python 3.9 or newer.** Check with `python3 --version`.
+- **Git.** Check with `git --version`.
+- **About 20 GB of free disk space** for the match data.
+
+### 2. Clone the repository
+
+```bash
+git clone https://github.com/vuleanhduc1604/more-than-a-hack-2027.git
+cd more-than-a-hack-2027
+```
+
+### 3. Create the Python environment
+
+macOS / Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements-starter.txt
+```
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements-starter.txt
+```
+
+Activate the environment each time you open a new terminal. `requirements-starter.txt` installs everything:
+numpy, pandas, kloppy, matplotlib and Jupyter.
+
+### 4. Get the data
+
+Download it from
+[this Google Drive folder](https://drive.google.com/drive/folders/1-fj9HgGxZBGrAVugL2g3yIzFm-JuykDe)
+into the `data/` subfolder, keeping `tactical/` and `broadcast/` as separate folders. The videos must be
+named `BAR-ATH_tactical.mp4` and `BAR-ATH_broadcast.mp4`, so rename them if they arrive with a `-001` or
+`-002` suffix.
+
+```
+data/
+├─ tactical/
+│  ├─ BAR-ATH_tactical.mp4
+│  ├─ BAR-ATH_tactical_atd.xml
+│  ├─ BAR-ATH_tactical_atd.txt
+│  ├─ BAR-ATH_tactical_homography.csv
+│  └─ BAR-ATH_tactical_smart_tagging.xml
+└─ broadcast/
+   ├─ BAR-ATH_broadcast.mp4
+   ├─ BAR-ATH_broadcast_atd.xml
+   ├─ BAR-ATH_broadcast_atd.txt
+   └─ BAR-ATH_broadcast_homography.csv
+```
+
+`data/` and `cache/` are gitignored. Never commit them, and never upload match data to a cloud AI tool.
+
+### 5. Check that it works
+
+```bash
+python starter/load_data.py          # builds cache/ and prints the array shapes
+python evaluation/run_evaluation.py  # scores the four baselines
+```
+
+The first command should report `players (199319, 46, 2)`, `ball located on 56.9% of frames` and
+`638 tags, 59 set pieces`. In the second, `baseline_smooth125` should rank first with a spellF1 of 0.4242.
+
+### 6. Start working
+
+```bash
+jupyter notebook starter/solution.ipynb
+```
+
+Our code lives in `starter/`. Clear all notebook outputs before committing, because they can contain match
+data and this repository has to be public.
+
+---
+
 **Organised by [Metrica Sports](https://metrica-sports.com), [FC Barcelona](https://www.fcbarcelona.com)
 and the [Mobile World Capital Barcelona](https://www.mwcbarcelona.com)**, at the Talent Arena in Barcelona.
 
@@ -91,19 +187,6 @@ python evaluation/validate_submission.py <your>.csv     # before every submissio
 **Validate every file before you submit it.** `validate_submission.py` runs exactly the checks the
 official scorer runs, and a file that fails them is dropped from the board with a one-line reason.
 It takes two seconds and it is the single most common way a good entry scores nothing.
-
----
-
-## Getting the data
-
-The match assets are released to enrolled participants who have accepted the terms of use.
-
-1. Enrol: **[More than A Hack 2027](https://landing.mobileworldcapital.com/more-than-a-hack-2027)**
-2. Read and sign the terms and conditions in the registration form
-3. You receive a download link.
-4. Unpack it into `./data`, or point `MTAH_DATA_DIR` at wherever you put it.
-
-Full description of every asset and how the frames line up: **[DATA.md](DATA.md)**.
 
 ---
 

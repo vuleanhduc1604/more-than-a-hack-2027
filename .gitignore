@@ -13,6 +13,7 @@
 *_possession_gt_meta.json
 *_possession_gt_reference.csv
 possession_by_frame.pkl
+CLAUDE.md
 
 # -- submissions -------------------------------------------------------------------------------
 # Any file in results/ is a set of labels for the whole match. A perfect one is a copy of the
@@ -62,3 +63,8 @@ __pycache__/
 venv/
 env/
 .DS_Store
+
+# -- derived match data ----------------------------------------------------------------------------
+# The arrays in cache/ are frame-level tracking. They fall under the same terms as data/ and must
+# never reach a public repository.
+cache/
