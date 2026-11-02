@@ -4,7 +4,7 @@ Repo copy of the [Claude Docs version](https://claude.ai/artifact/DsYaFuHVbPpNSG
 
 ## Overview
 
-We need to beat a full-match spellF1 of 0.2433 by labelling every frame of Barcelona vs Athletic as `H`, `A`, `D` or `X`. The work splits into four sections, connected only by per-frame arrays, so they can run in parallel. The final submission is due 17 November 2026.
+We need to beat a full-match spellF1 of 0.2433 by labelling every frame of Barcelona vs Athletic as `H`, `A`, `D` or `X`. The work splits into four sections, connected only by per-frame arrays, and they run one after another: each part starts when the previous one finishes. The final submission is due 17 November 2026.
 
 The baseline uses only the tracking. It gives each frame to the team of the player closest to the ball, marks missing-ball frames as `D`, then smooths with a majority vote. Each section replaces part of that logic.
 
@@ -65,8 +65,6 @@ Every per-frame array has 199,319 entries, indexed by tactical video frame, with
 This section gives everyone clean data and a trustworthy way to compare versions. It doesn't raise the score directly, but it unblocks every other section and produces the file we submit.
 
 **Files:** `starter/load_data.py`, `starter/validate/`, `starter/make_submission.py`
-
-**Deadlines:** shared loader and tag table by Nov 2, 2026 · compare command by Nov 5, 2026 · tech-doc part by Nov 14, 2026 · final file checked by Nov 16, 2026
 
 ### In plain words
 
@@ -155,7 +153,7 @@ This section gives later steps a usable ball estimate on every frame, and turns 
 
 **Files:** `starter/ball.py`, `starter/tagging.py`
 
-**Deadlines:** first version by Nov 5, 2026 · finished by Nov 12, 2026 · tech-doc part by Nov 14, 2026
+**Deadline:** starts Nov 2, 2026 · finished by Nov 6, 2026, with its tech-doc part due the same day
 
 ### In plain words
 
@@ -255,7 +253,7 @@ This section replaces "ball missing means dead" with a real estimate of whether 
 
 **File:** `starter/dead_ball.py`
 
-**Deadlines:** first version by Nov 5, 2026 · finished by Nov 12, 2026 · tech-doc part by Nov 14, 2026
+**Deadline:** starts Nov 6, 2026 · finished by Nov 10, 2026, with its tech-doc part due the same day
 
 ### In plain words
 
@@ -357,7 +355,7 @@ This section decides which team has the ball and turns per-frame evidence into w
 
 **Files:** `starter/team.py`, `starter/decode.py`
 
-**Deadlines:** first end-to-end version by Nov 5, 2026 · finished by Nov 12, 2026 · tech-doc part by Nov 14, 2026
+**Deadline:** starts Nov 10, 2026 · finished by Nov 14, 2026, with its tech-doc part due the same day
 
 ### In plain words
 
@@ -417,7 +415,7 @@ labels = viterbi(score_home, score_away, score_dead, SWITCH_COST)
 
 ### Steps
 
-1. Start with the nearest-player signal and a simple `p_dead`, so nothing blocks this section.
+1. Start from the `p_dead` and ball estimates delivered by Sections 2 and 3.
 2. Build a three-state H/A/D decoder with Viterbi decoding, including a cost for each type of switch.
 3. Add a minimum possession length. Set costs and limits from the sample matches only.
 4. Connect it to `make_submission.py` and write a valid CSV.
@@ -449,27 +447,26 @@ The labels form realistic possessions: brief touches and deflections don't flip 
 
 ## Timeline and integration
 
-The first end-to-end version is due on 5 November, which leaves a week for improvements before the 14 November freeze.
+The parts run as a relay: Harry, then Milu, then Huyen, then Lam. Each has about 4 days, and the last finishes at the 14 November freeze.
 
 | Work | Dates (2026) |
 | --- | --- |
-| Shared loader | Oct 31 to Nov 2 |
-| First versions, all sections | Oct 31 to Nov 5 |
-| Compare setup | Nov 2 to Nov 5 |
-| Improvements | Nov 5 to Nov 12 |
-| Code freeze | Nov 14 |
+| Section 1 (Harry) | Done Nov 2 |
+| Section 2 (Milu) | Nov 2 to Nov 6 |
+| Section 3 (Huyen) | Nov 6 to Nov 10 |
+| Section 4 (Lam) | Nov 10 to Nov 14 |
 | Reproducibility checks | Nov 14 to Nov 16 |
 | **Submit** | **Nov 16** |
 | Official deadline | Nov 17 |
 
-The loader comes first, because Sections 2, 3 and 4 all depend on it. Until their inputs are ready, each section uses a simple stand-in, so nobody waits.
+Each section builds on the one before it, so a late handover delays everyone after it.
 
 **Working routine:**
 
 - Run every change through the compare command, and keep it only if the gain is clearly above the noise.
 - Run the public window only as a final correctness check.
 - Merge to the shared branch only when `make_submission.py` still writes a valid CSV.
-- Deliver tech-doc sections to the slides owner by 14 November.
+- Write your tech-doc part by the day your section finishes.
 
 **Tech-doc ownership:**
 

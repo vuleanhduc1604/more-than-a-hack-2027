@@ -7,12 +7,17 @@ the data it needs, and its deadlines.
 
 **The team:**
 
-| Name | Part | Status |
-| --- | --- | --- |
-| Harry | Section 1: Data & validation | Done |
-| Milu | Section 2: Ball & context | To do |
-| Huyen | Section 3: Dead ball | To do |
-| Lam | Section 4: Possession & decoder | To do |
+The parts run one after another: each person starts when the previous part finishes, and writes their
+tech-doc part by their finish date.
+
+| Name | Part | Status | Start | Finish |
+| --- | --- | --- | --- | --- |
+| Harry | Section 1: Data & validation | Done | — | Nov 2 |
+| Milu | Section 2: Ball & context | To do | Nov 2 | Nov 6 |
+| Huyen | Section 3: Dead ball | To do | Nov 6 | Nov 10 |
+| Lam | Section 4: Possession & decoder | To do | Nov 10 | Nov 14 |
+
+**Team dates:** code freeze Nov 14 · final file checked and submitted Nov 16 · official deadline Nov 17.
 
 ### 1. Install what you need
 
