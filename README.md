@@ -13,11 +13,11 @@ tech-doc part by their finish date.
 | Name | Part | Status | Start | Finish |
 | --- | --- | --- | --- | --- |
 | Harry | Section 1: Data & validation | Done | — | Nov 2 |
-| Milu | Section 2: Ball & context | To do | Nov 2 | Nov 6 |
-| Huyen | Section 3: Dead ball | To do | Nov 6 | Nov 10 |
-| Lam | Section 4: Possession & decoder | To do | Nov 10 | Nov 14 |
+| Khai | Section 2: Ball & context | To do | Nov 2 | Nov 8 |
+| Milu | Section 3: Dead ball | To do | Nov 8 | Nov 11 |
+| Lam | Section 4: Possession & decoder | To do | Nov 11 | Nov 15 |
 
-**Team dates:** code freeze Nov 14 · final file checked and submitted Nov 16 · official deadline Nov 17.
+**Team dates:** code freeze Nov 15 · final file checked and submitted Nov 16 · official deadline Nov 17.
 
 ### 1. Install what you need
 
@@ -58,7 +58,7 @@ numpy, pandas, kloppy, matplotlib and Jupyter.
 ### 4. Get the data
 
 Download it from
-[this Google Drive folder](https://drive.google.com/drive/folders/1-fj9HgGxZBGrAVugL2g3yIzFm-JuykDe)
+[this OneDrive folder](https://entuedu-my.sharepoint.com/:f:/g/personal/duc017_e_ntu_edu_sg/IgDYQg2cxKVtR6ZqU9wLzKhBARwv28SkizVuAgdLV8lh08I?e=9PJGoi)
 into the `data/` subfolder, keeping `tactical/` and `broadcast/` as separate folders. The videos must be
 named `BAR-ATH_tactical.mp4` and `BAR-ATH_broadcast.mp4`, so rename them if they arrive with a `-001` or
 `-002` suffix.
