@@ -11,8 +11,8 @@ The baseline uses only the tracking. It gives each frame to the team of the play
 | Section | Owner | Status | Main question | Baseline weakness it fixes |
 | --- | --- | --- | --- | --- |
 | 1. Data & validation | Harry | Done | Can we load the data and prove a change helped? | Only the public 5 minutes can be scored, and we can't tune on them |
-| 2. Ball & context | Khai | To do | Where is the ball, and what do the tags suggest? | The ball is missing on 41% of scored frames; Smart Tagging is unused |
-| 3. Dead ball | Milu | To do | Is the ball in play? | "Ball missing" is treated as "ball dead" |
+| 2. Ball & context | Milu | To do | Where is the ball, and what do the tags suggest? | The ball is missing on 41% of scored frames; Smart Tagging is unused |
+| 3. Dead ball | Khai | To do | Is the ball in play? | "Ball missing" is treated as "ball dead" |
 | 4. Possession & decoder | Lam | To do | Which team has it, and where do possessions start and end? | Closest isn't control, nothing remembers the last possessor, and voting only hides flicker |
 
 ```text
@@ -147,7 +147,7 @@ Any team member can load the data in seconds, test a change on labelled matches,
 
 ## Section 2: Ball & context
 
-**Owner:** Khai · **Status:** To do
+**Owner:** Milu · **Status:** To do
 
 This section gives later steps a usable ball estimate on every frame, and turns Smart Tagging into per-frame hints. It tackles the biggest data problem: the ball is missing on 41% of scored frames, often at the moments that matter.
 
@@ -247,7 +247,7 @@ Sections 3 and 4 have a ball estimate on every frame, know when to distrust it, 
 
 ## Section 3: Dead ball
 
-**Owner:** Milu · **Status:** To do
+**Owner:** Khai · **Status:** To do
 
 This section replaces "ball missing means dead" with a real estimate of whether the ball is in play. It matters directly to the ranking: a false `D` splits a possession, and a missed `D` can merge two.
 
@@ -447,13 +447,13 @@ The labels form realistic possessions: brief touches and deflections don't flip 
 
 ## Timeline and integration
 
-The parts run as a relay: Harry, then Khai, then Milu, then Lam. Each has 3 to 6 days, and the last finishes at the 15 November freeze.
+The parts run as a relay: Harry, then Milu, then Khai, then Lam. Each has 3 to 6 days, and the last finishes at the 15 November freeze.
 
 | Work | Dates (2026) |
 | --- | --- |
 | Section 1 (Harry) | Done Nov 2 |
-| Section 2 (Khai) | Nov 2 to Nov 8 |
-| Section 3 (Milu) | Nov 8 to Nov 11 |
+| Section 2 (Milu) | Nov 2 to Nov 8 |
+| Section 3 (Khai) | Nov 8 to Nov 11 |
 | Section 4 (Lam) | Nov 11 to Nov 15 |
 | Reproducibility checks | Nov 15 to Nov 16 |
 | **Submit** | **Nov 16** |

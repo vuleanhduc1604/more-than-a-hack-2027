@@ -13,8 +13,8 @@ tech-doc part by their finish date.
 | Name | Part | Status | Start | Finish |
 | --- | --- | --- | --- | --- |
 | Harry | Section 1: Data & validation | Done | — | Nov 2 |
-| Khai | Section 2: Ball & context | To do | Nov 2 | Nov 8 |
-| Milu | Section 3: Dead ball | To do | Nov 8 | Nov 11 |
+| Milu | Section 2: Ball & context | To do | Nov 2 | Nov 8 |
+| Khai | Section 3: Dead ball | To do | Nov 8 | Nov 11 |
 | Lam | Section 4: Possession & decoder | To do | Nov 11 | Nov 15 |
 
 **Team dates:** code freeze Nov 15 · final file checked and submitted Nov 16 · official deadline Nov 17.
