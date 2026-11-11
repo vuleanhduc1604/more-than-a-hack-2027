@@ -12,7 +12,7 @@ The baseline uses only the tracking. It gives each frame to the team of the play
 | --- | --- | --- | --- | --- |
 | 1. Data & validation | Harry | Done | Can we load the data and prove a change helped? | Only the public 5 minutes can be scored, and we can't tune on them |
 | 2. Ball & context | Milu | To do | Where is the ball, and what do the tags suggest? | The ball is missing on 41% of scored frames; Smart Tagging is unused |
-| 3. Dead ball | Khai | To do | Is the ball in play? | "Ball missing" is treated as "ball dead" |
+| 3. Dead ball | Khai | Done (v1) | Is the ball in play? | "Ball missing" is treated as "ball dead" |
 | 4. Possession & decoder | Lam | To do | Which team has it, and where do possessions start and end? | Closest isn't control, nothing remembers the last possessor, and voting only hides flicker |
 
 ```text
@@ -247,7 +247,7 @@ Sections 3 and 4 have a ball estimate on every frame, know when to distrust it, 
 
 ## Section 3: Dead ball
 
-**Owner:** Khai · **Status:** To do
+**Owner:** Khai · **Status:** Done (v1), see [the handoff note](section3_handoff.md)
 
 This section replaces "ball missing means dead" with a real estimate of whether the ball is in play. It matters directly to the ranking: a false `D` splits a possession, and a missed `D` can merge two.
 
@@ -341,11 +341,11 @@ The system finds real stoppages and their end points, and keeps play alive when 
 
 ### Done when
 
-- [ ] `p_dead` covers every frame and has no `NaN`
-- [ ] Ball-missing frames aren't automatically treated as dead
-- [ ] Stoppage detection beats the baseline on the compare command
-- [ ] Restart timing error is measured on sample matches
-- [ ] No rule depends on a specific frame in this match
+- [x] `p_dead` covers every frame and has no `NaN`
+- [x] Ball-missing frames aren't automatically treated as dead
+- [x] Stoppage detection beats the baseline on the compare command
+- [x] Restart timing error is measured on sample matches
+- [x] No rule depends on a specific frame in this match
 
 ## Section 4: Possession & decoder
 

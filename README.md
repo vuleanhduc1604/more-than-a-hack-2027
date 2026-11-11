@@ -14,7 +14,7 @@ tech-doc part by their finish date.
 | --- | --- | --- | --- | --- |
 | Harry | Section 1: Data & validation | Done | — | Nov 2 |
 | Milu | Section 2: Ball & context | To do | Nov 2 | Nov 8 |
-| Khai | Section 3: Dead ball | To do | Nov 8 | Nov 11 |
+| Khai | Section 3: Dead ball | Done (v1, [handoff](docs/section3_handoff.md)) | Nov 8 | Nov 11 |
 | Lam | Section 4: Possession & decoder | To do | Nov 11 | Nov 15 |
 
 **Team dates:** code freeze Nov 15 · final file checked and submitted Nov 16 · official deadline Nov 17.
@@ -80,15 +80,24 @@ data/
 
 `data/` and `cache/` are gitignored. Never commit them, and never upload match data to a cloud AI tool.
 
+We also need Metrica's three public sample games, which come with event data and so with known
+answers. They are what we choose settings on, since we may not tune on our own match:
+
+```bash
+git clone --depth 1 https://github.com/metrica-sports/sample-data data/metrica-sample-data
+```
+
 ### 5. Check that it works
 
 ```bash
 python starter/load_data.py          # builds cache/ and prints the array shapes
 python evaluation/run_evaluation.py  # scores the four baselines
+python starter/sample_games.py       # reads the three sample games and prints their label shares
 ```
 
 The first command should report `players (199319, 46, 2)`, `ball located on 56.9% of frames` and
 `638 tags, 59 set pieces`. In the second, `baseline_smooth125` should rank first with a spellF1 of 0.4242.
+`python -m pytest tests` runs the unit tests, which need no data.
 
 ### 6. Start working
 
