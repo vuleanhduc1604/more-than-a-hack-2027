@@ -13,7 +13,7 @@ tech-doc part by their finish date.
 | Name | Part | Status | Start | Finish |
 | --- | --- | --- | --- | --- |
 | Harry | Section 1: Data & validation | Done | — | Nov 2 |
-| Milu | Section 2: Ball & context | To do | Nov 2 | Nov 8 |
+| Milu | Section 2: Ball & context | v1 ([handoff](docs/section2_handoff.md)); steps 4, 6, 10 open | Nov 2 | Nov 8 |
 | Khai | Section 3: Dead ball | Done (v1, [handoff](docs/section3_handoff.md)) | Nov 8 | Nov 11 |
 | Lam | Section 4: Possession & decoder | To do | Nov 11 | Nov 15 |
 

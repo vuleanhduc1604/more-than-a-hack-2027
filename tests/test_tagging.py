@@ -100,13 +100,94 @@ def test_build_is_deterministic_and_cached(tmp_path, tags, home_away):
     cached = tagging.build(cache_dir=first, tags=None, home_away=None, n_frames=N,
                            signature=SIGNATURE)
     assert cached["st_team"].dtype == np.int8 and cached["restart"].shape == (N,)
+    assert cached["restart_team"].dtype == np.int8
 
 
 def test_report_block(tags, home_away):
     mapping = tagging.map_teams(tags["team"].tolist(), CLUBS)
-    out = {"restart": tagging.build_restart(tags, N),
-           "st_team": tagging.build_st_team(tags, N, home_away)}
+    out, evidence = tagging.compute(tags, N, home_away)
     lines = tagging.report_lines(tags, out, mapping, synthetic.BLOCKS,
-                                 {"n_kickoff_tags": 1, "agrees": True})
+                                 {"n_kickoff_tags": 1, "agrees": True}, evidence)
     assert lines[0].startswith("=== tagging.py --report") and lines[-1] == "=== end ==="
     assert any(line.endswith("OK") for line in lines if "time base" in line)
+
+
+def test_polarity_flips_codes_that_name_the_defender(home_away):
+    import pandas as pd
+    n = 2000
+    near = np.full(n, tagging.UNKNOWN, dtype=np.int8)
+    rows = []
+    for i in range(6):
+        lo = 100 + i * 300
+        # "attack" tags name the team nearest the ball, "defend" tags name the other team,
+        # "noise" tags name a team that is nearest half the time.
+        near[lo:lo + 100] = tagging.HOME
+        near[lo + 100:lo + 200] = np.arange(100) % 2
+        rows += [("attack", "barcelona", lo, lo + 100), ("defend", "atletic club", lo, lo + 100),
+                 ("noise", "barcelona", lo + 100, lo + 200)]
+    tags = pd.DataFrame([{"code": c, "team": t, "type": None, "start_frame": s, "end_frame": e}
+                         for c, t, s, e in rows])
+    stats = tagging.code_polarity(tags, home_away, near)
+    assert stats["attack"]["polarity"] == 1
+    assert stats["defend"]["polarity"] == -1
+    assert stats["noise"]["polarity"] == 0
+    polarity = {c: s["polarity"] for c, s in stats.items()}
+    st = tagging.build_st_team(tags, n, home_away, polarity)
+    assert np.all(st[100:200] == tagging.HOME)           # attack and flipped defend agree
+    assert np.all(st[200:300] == tagging.UNKNOWN)        # noise code dropped
+    v0 = tagging.build_st_team(tags, n, home_away)
+    assert np.all(v0[100:200] == tagging.UNKNOWN)        # face value: a tie
+
+
+def test_st_team_majority_vote(home_away):
+    import pandas as pd
+    tags = pd.DataFrame([{"code": c, "team": t, "type": None, "start_frame": 0, "end_frame": 10}
+                         for c, t in (("a", "barcelona"), ("b", "barcelona"),
+                                      ("c", "atletic club"))])
+    assert np.all(tagging.build_st_team(tags, 10, home_away) == tagging.HOME)
+
+
+def _touchline_players(n, home_y, away_y):
+    players = np.full((n, 4, 2), np.nan)
+    players[:, 0] = (50.0, home_y)
+    players[:, 2] = (50.0, away_y)
+    return players, np.array([0, 0, 1, 1], dtype=np.int8)
+
+
+def test_throw_in_votes_pick_the_player_beyond_the_line():
+    width = synthetic.PITCH[1]
+    players, team = _touchline_players(40, -1.0, 2.0)            # home thrower just outside
+    ball_xy = np.tile([50.0, -0.5], (40, 1))
+    home, away = tagging.throw_in_votes(players, team, ball_xy, synthetic.PITCH)
+    assert (home, away) == (80, 0) and tagging.decide_taker(home, away) == tagging.HOME
+    players, team = _touchline_players(40, 30.0, width + 1.5)    # away, far touchline, no ball
+    home, away = tagging.throw_in_votes(players, team, np.full((40, 2), np.nan), synthetic.PITCH)
+    assert tagging.decide_taker(home, away) == tagging.AWAY
+    players, team = _touchline_players(40, -8.0, 30.0)           # too far back: staff, not thrower
+    assert tagging.throw_in_votes(players, team, ball_xy, synthetic.PITCH) == (0, 0)
+
+
+def test_decide_taker_needs_votes_and_a_clear_share():
+    assert tagging.decide_taker(5, 0) == tagging.UNKNOWN
+    assert tagging.decide_taker(14, 6) == tagging.UNKNOWN
+    assert tagging.decide_taker(2, 18) == tagging.AWAY
+
+
+def test_restart_team_without_tracking(tags, home_away):
+    out, evidence = tagging.compute(tags, N, home_away)
+    rt = out["restart_team"]
+    assert np.all(rt[480:605] == tagging.HOME)           # kick off tagged barcelona
+    assert np.all(rt[605:725] == tagging.UNKNOWN)        # throw-in, no tracking to infer it
+    assert np.all(rt[1000:1125] == tagging.HOME)         # corner
+    assert np.all(rt[N - 30:] == tagging.AWAY)           # goal kick, clipped
+    assert np.all(rt[1200:1450] == tagging.UNKNOWN)      # phase tags never write restart_team
+    assert "inferred" not in set(evidence["set_piece_source"])
+
+
+def test_compute_with_synthetic_tracking_is_deterministic(tags, home_away):
+    tracking, truth = synthetic.make_tracking()
+    a, ev = tagging.compute(tags, N, home_away, tracking, truth["blocks"])
+    b, _ = tagging.compute(tags, N, home_away, tracking, truth["blocks"])
+    for name in tagging.ARRAYS:
+        assert a[name].shape == (N,) and np.array_equal(a[name], b[name])
+    assert set(ev["polarity"]) >= {"build up", "progression"}

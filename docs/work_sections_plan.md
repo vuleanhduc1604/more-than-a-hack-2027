@@ -11,7 +11,7 @@ The baseline uses only the tracking. It gives each frame to the team of the play
 | Section | Owner | Status | Main question | Baseline weakness it fixes |
 | --- | --- | --- | --- | --- |
 | 1. Data & validation | Harry | Done | Can we load the data and prove a change helped? | Only the public 5 minutes can be scored, and we can't tune on them |
-| 2. Ball & context | Milu | To do | Where is the ball, and what do the tags suggest? | The ball is missing on 41% of scored frames; Smart Tagging is unused |
+| 2. Ball & context | Milu | v1; steps 4, 6, 10 open | Where is the ball, and what do the tags suggest? | The ball is missing on 41% of scored frames; Smart Tagging is unused |
 | 3. Dead ball | Khai | Done (v1) | Is the ball in play? | "Ball missing" is treated as "ball dead" |
 | 4. Possession & decoder | Lam | To do | Which team has it, and where do possessions start and end? | Closest isn't control, nothing remembers the last possessor, and voting only hides flicker |
 
@@ -147,7 +147,7 @@ Any team member can load the data in seconds, test a change on labelled matches,
 
 ## Section 2: Ball & context
 
-**Owner:** Milu · **Status:** To do
+**Owner:** Milu · **Status:** v1, see [the handoff note](section2_handoff.md). Open: step 4 (long gaps from players), step 6 (soft `restart`), step 10 (video detector)
 
 This section gives later steps a usable ball estimate on every frame, and turns Smart Tagging into per-frame hints. It tackles the biggest data problem: the ball is missing on 41% of scored frames, often at the moments that matter.
 
@@ -239,10 +239,10 @@ Sections 3 and 4 have a ball estimate on every frame, know when to distrust it, 
 
 ### Done when
 
-- [ ] `ball_xy` has no `NaN` on scored frames
-- [ ] `ball_conf` falls as measured error rises
-- [ ] Tag frames line up with the starter's time-base check
-- [ ] Throw-ins have a team estimate wherever the evidence allows
+- [x] `ball_xy` has no `NaN` on scored frames
+- [x] `ball_conf` falls as measured error rises
+- [x] Tag frames line up with the starter's time-base check
+- [x] Throw-ins have a team estimate wherever the evidence allows
 - [ ] No tag interval is copied directly into the final labels
 
 ## Section 3: Dead ball

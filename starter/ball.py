@@ -34,8 +34,21 @@ The result is cached in cache/ (gitignored: it is frame-level tracking). The sig
 tracking source, VERSION and a hash of the Params block, and is written last, so a change in any
 of them, or an interrupted build, means a rebuild.
 
-    python starter/ball.py            # build or load the cache, print shapes
-    python starter/ball.py --report   # aggregate gap report, safe to share
+Fill error (plan step 9). We cannot score a fill against frames the tracker never saw, so we make
+gaps where it did: hide stretches of observed ball, run the same estimate_ball, and measure the
+distance in metres between the fill and the hidden observation. Gaps are drawn per GAP_BUCKETS
+length bucket with a fixed seed, and each sits strictly inside a run of observations, so its two
+end points are real, as for a real interior gap. The table this prints is the yardstick for
+ball_conf: it should fall as the measured error rises.
+
+The numbers are a LOWER bound on real error. Artificial gaps sit where the tracker could see the
+ball, which is usually open play. Real gaps cluster at contested moments and stoppages, where the
+ball moves less predictably. The open bucket is capped at MASK_MAX_LEN, and very long artificial
+gaps fit only in the few long observed runs, so that bucket has fewer samples.
+
+    python starter/ball.py              # build or load the cache, print shapes
+    python starter/ball.py --report     # aggregate gap report, safe to share
+    python starter/ball.py --fill-error # aggregate fill-error report, safe to share
 """
 
 import argparse
@@ -68,6 +81,12 @@ CONF_TAU_DIST_S = 1.0      # v0 guess, to be calibrated in v1
 CONF_TAU_LEN_S = 4.0       # v0 guess, to be calibrated in v1
 
 GAP_BUCKETS = ((1, 5), (6, 12), (13, 25), (26, 75), (76, 250), (251, None))
+
+# Fill-error experiment (step 9). Not part of PARAMS: it measures the arrays, it does not change them.
+MASK_SEED = 20261112
+MASK_TRIES = 400           # placement attempts per length bucket; clashes are skipped
+MASK_MAX_LEN = 1000        # cap for the open-ended bucket (40 s)
+CONF_BINS = (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0)
 
 CACHE_DIR = load_data.CACHE_DIR
 SIGNATURE_FILE = "ball_signature.json"
@@ -372,13 +391,127 @@ def report_lines(tracking, out, blocks=None):
     return lines
 
 
+# ---------------------------------------------------------------------------------------------
+# Fill error (step 9): hide observed ball, refill it, measure. Aggregates only in the output.
+# ---------------------------------------------------------------------------------------------
+
+def mask_gaps(clean, blocks, seed=MASK_SEED, tries=MASK_TRIES, max_len=MASK_MAX_LEN):
+    """Sorted half-open artificial gaps, each strictly inside a run of observations.
+
+    The frame before and after each gap are observed and belong to no other gap, so the fill sees
+    true end points. Gaps never touch each other, so each is filled on its own, as a real one is.
+    """
+    rng = np.random.default_rng(seed)
+    observed = ~np.isnan(clean[:, 0])
+    runs = []
+    for lo, hi in blocks:
+        runs.extend((lo + s, lo + e) for s, e in _runs(observed[lo:hi]))
+    if not runs:
+        return []
+    runs = np.array(runs, dtype=np.int64)
+    run_len = runs[:, 1] - runs[:, 0]
+    taken = np.zeros(len(clean), dtype=bool)
+    gaps = []
+    for low, high in GAP_BUCKETS:
+        high = high or max_len
+        for _ in range(tries):
+            length = int(rng.integers(low, high + 1))
+            fit = np.flatnonzero(run_len >= length + 2)
+            if not len(fit):
+                continue
+            run_start, run_end = runs[fit[rng.integers(len(fit))]]
+            start = int(rng.integers(run_start + 1, run_end - length))
+            if taken[start - 1:start + length + 1].any():
+                continue
+            taken[start - 1:start + length + 1] = True
+            gaps.append((start, start + length))
+    return sorted(gaps)
+
+
+def fill_error(tracking, blocks=None, seed=MASK_SEED):
+    """Per hidden frame: gap length, fill error (m), ball_conf, and the error of holding the last
+    observation instead (a naive yardstick). Also returns the gaps themselves."""
+    blocks = scored_blocks() if blocks is None else [tuple(b) for b in blocks]
+    clean, _, _ = _remove_outliers(tracking["ball_raw"], blocks)
+    gaps = mask_gaps(clean, blocks, seed)
+    hidden = clean.copy()
+    for start, end in gaps:
+        hidden[start:end] = np.nan
+    out = estimate_ball(dict(tracking, ball_raw=hidden), blocks)
+
+    frames = np.concatenate([np.arange(s, e) for s, e in gaps]) if gaps else np.zeros(0, int)
+    gap_len = np.concatenate([np.full(e - s, e - s) for s, e in gaps]) if gaps else frames
+    before = np.concatenate([np.full(e - s, s - 1) for s, e in gaps]) if gaps else frames
+    truth = clean[frames].astype(np.float64)
+    err = np.hypot(*(out["ball_xy"][frames] - truth).T)
+    hold_err = np.hypot(*(clean[before] - truth).T)
+    return {"gaps": gaps, "gap_len": gap_len, "err": err, "hold_err": hold_err,
+            "conf": out["ball_conf"][frames].astype(np.float64)}
+
+
+def _spearman(a, b):
+    """Rank correlation with average ranks for ties, numpy only."""
+    def ranks(x):
+        order = np.argsort(x, kind="mergesort")
+        r = np.empty(len(x), dtype=np.float64)
+        r[order] = np.arange(len(x))
+        _, inverse, counts = np.unique(x, return_inverse=True, return_counts=True)
+        sums = np.bincount(inverse, weights=r)
+        return sums[inverse] / counts[inverse]
+    if len(a) < 2:
+        return float("nan")
+    return float(np.corrcoef(ranks(a), ranks(b))[0, 1])
+
+
+def fill_error_lines(result, seed=MASK_SEED):
+    """The --fill-error block as a list of lines."""
+    gap_len, err, conf = result["gap_len"], result["err"], result["conf"]
+    hold_err = result["hold_err"]
+    gap_lengths = np.array([e - s for s, e in result["gaps"]], dtype=np.int64)
+    q = lambda x, p: float(np.percentile(x, p)) if len(x) else float("nan")  # noqa: E731
+
+    lines = ["=== ball.py --fill-error ({}, seed {}) ===".format(VERSION, seed),
+             "hidden gaps {}  hidden frames {}  (lower bound: gaps sit in open play)".format(
+                 len(gap_lengths), len(err)),
+             "error in metres, per hidden frame, by gap length (frames):",
+             "  {:<8} {:>6} {:>8} {:>7} {:>7} {:>7} {:>9} {:>9}".format(
+                 "bucket", "n_gaps", "n_frames", "p50", "p90", "max", "hold_p50", "conf_mean")]
+    for low, high in GAP_BUCKETS:
+        sel = (gap_len >= low) & ((gap_len <= high) if high else True)
+        n_gaps = int(((gap_lengths >= low) & ((gap_lengths <= high) if high else True)).sum())
+        lines.append("  {:<8} {:>6} {:>8} {:>7.2f} {:>7.2f} {:>7.2f} {:>9.2f} {:>9.2f}".format(
+            _bucket_label(low, high), n_gaps, int(sel.sum()), q(err[sel], 50), q(err[sel], 90),
+            float(err[sel].max()) if sel.any() else float("nan"), q(hold_err[sel], 50),
+            float(conf[sel].mean()) if sel.any() else float("nan")))
+
+    lines.append("error in metres by ball_conf:")
+    lines.append("  {:<11} {:>8} {:>7} {:>7}".format("conf", "n_frames", "p50", "p90"))
+    medians = []
+    for low, high in zip(CONF_BINS[:-1], CONF_BINS[1:]):
+        sel = (conf >= low) & ((conf < high) if high < 1.0 else (conf <= high))
+        if sel.any():
+            medians.append(q(err[sel], 50))
+        lines.append("  {:<11} {:>8} {:>7.2f} {:>7.2f}".format(
+            "{:.2f}-{:.2f}".format(low, high), int(sel.sum()), q(err[sel], 50), q(err[sel], 90)))
+    falling = all(a >= b for a, b in zip(medians[:-1], medians[1:]))
+    lines.append("median error falls as ball_conf rises: {}".format("OK" if falling else "NO"))
+    lines.append("rank correlation(conf, error): {:.3f}  (negative is what we want)".format(
+        _spearman(conf, err)))
+    lines.append("=== end ===")
+    return lines
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--report", action="store_true", help="print the aggregate gap report")
+    parser.add_argument("--fill-error", action="store_true",
+                        help="hide observed ball, refill it, print the error by gap length")
     parser.add_argument("--refresh", action="store_true", help="rebuild the cache")
     args = parser.parse_args()
 
     out = build(refresh=args.refresh)
+    if args.fill_error:
+        print("\n".join(fill_error_lines(fill_error(load_data.load_tracking()))))
     if args.report:
         print("\n".join(report_lines(load_data.load_tracking(), out)))
     else:
