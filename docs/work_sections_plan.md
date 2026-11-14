@@ -13,7 +13,7 @@ The baseline uses only the tracking. It gives each frame to the team of the play
 | 1. Data & validation | Harry | Done | Can we load the data and prove a change helped? | Only the public 5 minutes can be scored, and we can't tune on them |
 | 2. Ball & context | Milu | v1; steps 4, 6, 10 open | Where is the ball, and what do the tags suggest? | The ball is missing on 41% of scored frames; Smart Tagging is unused |
 | 3. Dead ball | Khai | Done (v1) | Is the ball in play? | "Ball missing" is treated as "ball dead" |
-| 4. Possession & decoder | Lam | To do | Which team has it, and where do possessions start and end? | Closest isn't control, nothing remembers the last possessor, and voting only hides flicker |
+| 4. Possession & decoder | Lam | Done (v2) | Which team has it, and where do possessions start and end? | Closest isn't control, nothing remembers the last possessor, and voting only hides flicker |
 
 ```text
 1. Data & validation: gives every section the shared arrays
@@ -349,7 +349,7 @@ The system finds real stoppages and their end points, and keeps play alive when 
 
 ## Section 4: Possession & decoder
 
-**Owner:** Lam · **Status:** To do
+**Owner:** Lam · **Status:** Done (v2: step 7, team-shape evidence for ball gaps, added), see [the handoff note](section4_handoff.md)
 
 This section decides which team has the ball and turns per-frame evidence into whole possessions. It produces the final labels, and it most directly targets `spellF1`, which rewards whole possessions rather than single frames.
 
