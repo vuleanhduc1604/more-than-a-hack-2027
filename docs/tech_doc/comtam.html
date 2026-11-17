@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>comtam: technical document</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  :root { --ink:#1b1f24; --muted:#5b6470; --rule:#d7dce2; --accent:#a3123a; --soft:#f4f6f8; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink);
+         font-size: 9.6pt; line-height: 1.45; margin: 0; background: #fff; }
+  h1 { font-size: 21pt; margin: 0 0 2mm; letter-spacing: -0.01em; }
+  h2 { font-size: 12.5pt; color: var(--accent); margin: 6mm 0 2mm; padding-bottom: 1mm;
+       border-bottom: 1px solid var(--rule); break-after: avoid; }
+  h3 { font-size: 10.2pt; margin: 4mm 0 1.2mm; break-after: avoid; }
+  p { margin: 0 0 2mm; }
+  ul, ol { margin: 0 0 2mm; padding-left: 5mm; }
+  li { margin-bottom: 0.8mm; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 8.4pt; background: var(--soft);
+         padding: 0 1mm; border-radius: 2px; }
+  pre { font-family: Menlo, Consolas, monospace; font-size: 8.2pt; background: var(--soft);
+        border: 1px solid var(--rule); border-radius: 3px; padding: 2.5mm 3mm; margin: 0 0 2.5mm;
+        white-space: pre-wrap; break-inside: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 1mm 0 3mm; font-size: 8.8pt;
+          break-inside: avoid; }
+  th, td { border-bottom: 1px solid var(--rule); padding: 1.2mm 2mm; text-align: left;
+           vertical-align: top; }
+  th { background: var(--soft); font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .sub { color: var(--muted); font-size: 10.5pt; margin-bottom: 4mm; }
+  .meta { display: grid; grid-template-columns: 30mm 1fr; gap: 0.8mm 3mm; font-size: 9pt;
+          border: 1px solid var(--rule); border-radius: 3px; padding: 3mm 4mm; margin-bottom: 4mm; }
+  .meta b { color: var(--muted); font-weight: 600; }
+  .note { border-left: 3px solid var(--accent); background: var(--soft); padding: 2mm 3mm;
+          margin: 2mm 0 3mm; break-inside: avoid; }
+  .flow { display: flex; align-items: stretch; gap: 1.5mm; margin: 2mm 0 3mm; break-inside: avoid; }
+  .box { flex: 1; border: 1px solid var(--rule); border-radius: 3px; padding: 2mm; font-size: 8.2pt;
+         background: #fff; }
+  .box b { display: block; font-size: 8.8pt; margin-bottom: 0.6mm; }
+  .box i { color: var(--muted); font-style: normal; display: block; margin-top: 0.8mm; }
+  .arrow { align-self: center; color: var(--muted); font-size: 11pt; }
+  .eq { font-family: Menlo, Consolas, monospace; font-size: 8.6pt; text-align: center; margin: 1.5mm 0 2.5mm; }
+  .best { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>Ball possession from tracking</h1>
+<div class="sub">More than a Hack 2027, Phase 1 · FC Barcelona vs Athletic Club, LaLiga 2024-25 MD2 · Technical document</div>
+
+<div class="meta">
+  <b>Team</b><span>comtam: Vu Le Anh Duc, Huynh Xuan Lam, Luu Quang Minh, Duong Kien Khai</span>
+  <b>Submission</b><span><code>comtam.csv</code>: 199,319 rows, SHA-256 <code>a8acfb2d…5b023765b64</code></span>
+  <b>Code</b><span>https://github.com/vuleanhduc1604/more-than-a-hack-2027 (our code is in <code>starter/</code>)</span>
+  <b>Reproduce</b><span><code>python starter/make_submission.py --name comtam</code>, numpy + pandas only, a few minutes from a cold cache</span>
+</div>
+
+<h2>1. Summary</h2>
+<p>We label every frame of the tactical video as H, A or D. We never write X on graded frames.
+Every frame gets two probabilities from the tracking data: <code>p_dead</code>, the chance that play
+is stopped, and <code>p_home</code>, the chance that the home team has the ball if play is live. A
+three-state Viterbi decoder then picks the single most likely H/A/D sequence for each half. It charges
+a fixed cost for every change of state, which removes the frame-to-frame flicker that ruins per-frame
+voting under the spell-based metric.</p>
+<p>All learned parts are small logistic regressions written in numpy. Each is fitted on Metrica's
+three public, labelled sample games, never on the provided match. Every constant was chosen on those
+games with held-out (leave-one-game-out) scoring. The public 5-minute ground truth was used only as a
+final correctness check.</p>
+
+<div class="flow">
+  <div class="box"><b>1 · Data layer</b>ATD → per-frame arrays in metres; tactical video frame is the index<i><code>load_data.py</code></i></div>
+  <div class="arrow">→</div>
+  <div class="box"><b>2 · Ball</b>clean and fill the missing ball; <code>ball_xy</code>, <code>ball_conf</code><i><code>ball.py</code></i></div>
+  <div class="arrow">→</div>
+  <div class="box"><b>3 · Dead ball</b>team speed + ball over a line → <code>p_dead</code><i><code>dead_ball.py</code></i></div>
+  <div class="arrow">→</div>
+  <div class="box"><b>4a · Team</b>ball proximity + team shape → <code>p_home</code><i><code>team.py</code></i></div>
+  <div class="arrow">→</div>
+  <div class="box"><b>4b · Decoder</b>3-state Viterbi per half → H / A / D<i><code>decode.py</code></i></div>
+</div>
+<p>The stages exchange plain numpy arrays of length 199,319, where row <i>f</i> is video frame <i>f</i>.
+Each stage caches its output in <code>cache/</code> (gitignored, because it is frame-level match data)
+and rebuilds it when its inputs, parameters or version change.</p>
+
+<h2>2. Method</h2>
+
+<h3>2.1 Data layer (Section 1)</h3>
+<ul>
+  <li>The ATD (FIFA/EPTS) is parsed into per-frame arrays: <code>video_frame = frame_id − 1</code>, positions in
+  metres on the 105.3 × 68.0 m pitch from <code>games.py</code>, and missing observations stored as NaN, never as a sentinel value.
+  The 46 track slots carry a team but no identity, so every feature is a team-level statistic and none needs player identity.</li>
+  <li>About 9.8% of tracked speeds are NaN, so presence is tested on positions, and all aggregates are nan-aware.</li>
+</ul>
+
+<h3>2.2 Ball (Section 2)</h3>
+<ul>
+  <li>The ball is missing on 41% of graded frames, mostly in long gaps: gaps over 10 s hold about 85% of the missing frames.
+  Spikes and points more than 8 m outside the pitch are removed. Gaps inside a half are filled with a straight line, and nothing is carried across half-time.</li>
+  <li><code>ball_conf</code> is 1 where the ball is observed. In a gap it falls with the distance to the nearest
+  observation and with the gap length, down to a floor of 0.05. In a seeded test that hid 1,045 observed stretches and refilled them, the median fill error was
+  0.02 m for gaps of 1–5 frames, 1.1 m for 26–75 frames and 4.5 m for 76–250 frames. Its rank correlation
+  with <code>ball_conf</code> was −0.84, so the confidence orders the fills correctly.</li>
+</ul>
+
+<h3>2.3 Dead ball (Section 3)</h3>
+<p>A logistic regression gives <code>p_dead</code> from two kinds of evidence:</p>
+<ul>
+  <li><b>Collective movement.</b> The median and 90th-percentile player speed, averaged over windows of 0.5–10 s,
+  plus 3 s windows 2 s ahead and 2 s behind. When play stops, everybody walks. The speed distributions of our match and of
+  the sample games are almost the same, which is why the model transfers.</li>
+  <li><b>Ball over a line.</b> An observed (not interpolated) ball beyond a touchline or goal line within the last 3 s.</li>
+</ul>
+<p>A missing ball is never treated as evidence of a dead ball. On our match the ball is still tracked on about two thirds of dead frames, and most missing-ball frames are in open play.</p>
+
+<h3>2.4 Team in possession (Section 4a)</h3>
+<p>Two logistic regressions each produce a logit for "home has the ball". They are blended by how sure we are of the ball position:</p>
+<div class="eq">logit = ball_conf · ball_logit + (1 − ball_conf) · shape_logit &nbsp;&nbsp;&nbsp; p_home = σ(logit)</div>
+<ul>
+  <li><b>Ball evidence</b> (fitted on sample-game live frames with an observed ball). It uses the signed gap between the nearest-home and nearest-away
+  distances to the ball, capped at 20 m. That gap is also averaged over 0.5, 2 and 5 s, together with its ±0.5 s trend, the share of the last 2 s that home was nearer,
+  a "someone is on the ball" term that fades out at 3 m, and the nearest player's distance.</li>
+  <li><b>Team-shape evidence</b> (fitted on every sample-game live frame, and needs no ball). The team in possession stretches out,
+  while the defending team stays compact. Features are each team's spread along and across the pitch, the home-minus-away difference, and the same averaged over 1 s and 4 s
+  and over 3 s before and after the frame. A frame where either team has fewer than 7 tracked players gets no shape evidence.</li>
+</ul>
+<p>Shape evidence matters because gaps average 17 s and often contain several hand-overs. On held-out sample games,
+ball evidence alone names the right team on about 90% of observed-ball frames but only 52–63% of gap frames. Shape
+evidence names it on 83–84% of gap frames.</p>
+
+<h3>2.5 Decoder (Section 4b)</h3>
+<p>Each half is decoded on its own with a three-state Viterbi over {H, A, D}. With <code>q = σ(1.5 · logit(p_home))</code>, the per-frame
+cost of each state is <code>−log</code> of its score:</p>
+<div class="eq">score(H) = (1 − p_dead) · q &nbsp;&nbsp; score(A) = (1 − p_dead) · (1 − q) &nbsp;&nbsp; score(D) = p_dead</div>
+<p>A change between H and A costs 10, and entering or leaving D costs 20. These three constants came from a grid search on the
+sample games (leave-one-game-out). They sit on a flat optimum: most settings with team weight 1.0–2.0, H↔A cost 10–25 and D cost
+10–40 score within 0.005 spellF1 of the best. Frames outside the graded halves are written as X.</p>
+
+<h2>3. Possession rules implemented</h2>
+<p>The ground truth defines possession mechanically from corrected tracking. Our implementation follows the same rules through the decoder's costs:</p>
+<table>
+  <tr><th style="width:27%">Situation</th><th>What our pipeline does</th></tr>
+  <tr><td>Touches, deflections, won aerial duels without control</td><td>No change. A brief dip in the evidence cannot pay for two switches. The evidence has to point the other way strongly for about 10 frames or more before the label flips.</td></tr>
+  <tr><td>Loose or contested ball</td><td>Stays with the last possessor. A ball far from everyone gives <code>p_home</code> near 0.5, which never pays a switch cost.</td></tr>
+  <tr><td>Hand-over</td><td>Needs sustained evidence: the proximity margin or team shape has to favour the other side for about a second or more.</td></tr>
+  <tr><td>Ball not tracked</td><td>Ball evidence fades with <code>ball_conf</code> and team shape takes over. A sustained change of shape hands the ball over inside the gap. With too few players tracked, the last possessor keeps it.</td></tr>
+  <tr><td>Stoppage (D)</td><td>Sustained high <code>p_dead</code> moves the path to D, which ends the possession. A brief false alarm does not.</td></tr>
+  <tr><td>Restart</td><td>After D, the next team is whichever the evidence favours. The decoder has no memory of who had the ball before the stoppage.</td></tr>
+  <tr><td>Half-time</td><td>Halves are decoded separately, and frames 110808–113741 before the 2nd-half kick-off come out as D from <code>p_dead</code>.</td></tr>
+  <tr><td>Abstention (X)</td><td>Never written on graded frames. The decoder already holds the last possessor through weak evidence, which is all X would gain inside a spell, and X across a hand-over is penalised.</td></tr>
+</table>
+
+<h2>4. Assets and training data</h2>
+<table>
+  <tr><th style="width:30%">Asset</th><th style="width:14%">Status</th><th>How / why</th></tr>
+  <tr><td>Tactical ATD (tracking)</td><td><b>Used</b></td><td>The only input to the labels. It drives the ball, dead-ball and team stages.</td></tr>
+  <tr><td>Smart Tagging XML</td><td>Dropped from labels</td><td>Loaded and turned into priors (<code>st_team</code>, <code>restart</code>, <code>restart_team</code>) and used for label-free sanity checks: 96% of set-piece windows contain a predicted stoppage. It is not an input, because the sample games have no tags, so there is no honest way to set its weight. The tags are also automatic, not ground truth.</td></tr>
+  <tr><td>Homography (tactical, broadcast)</td><td>Dropped</td><td>The ATD is already in pitch coordinates. The broadcast video has no sync to the tactical timeline.</td></tr>
+  <tr><td>Tactical and broadcast video</td><td>Dropped</td><td>No ball detector was built, given the time available.</td></tr>
+  <tr><td>Public 5-min ground truth</td><td>Check only</td><td>Used to confirm the pipeline is valid and not broken. Nothing was fitted, tuned or chosen on it.</td></tr>
+  <tr><td>Metrica sample games 1–3 (external, public)</td><td><b>Training</b></td><td>Anonymised tracking plus event data from <code>github.com/metrica-sports/sample-data</code>, commit <code>e706dd5</code>. Frames are labelled H/A/D mechanically from the events (dead from the event that stops play to the restart event, and the team of the last on-ball event when live). Their ball is hidden with fixed seeds to match our 41% missing rate and our gap lengths before fitting.</td></tr>
+</table>
+<p>No hand labels were used, and no human-produced data about this match (event feeds, corrected tracking) was used.</p>
+
+<h2>5. Results</h2>
+<h3>5.1 Held-out sample games (where every choice was made)</h3>
+<p>Each game is scored with models trained on the other two, with the ball degraded to 41% missing:</p>
+<table>
+  <tr><th>Game</th><th class="n">Vote ±50 + p_dead</th><th class="n">Vote ±125</th><th class="n">Decoder, ball only</th><th class="n">Decoder, ball + shape (submitted)</th><th class="n">macroF1 (submitted)</th></tr>
+  <tr><td>1</td><td class="n">0.338</td><td class="n">0.229</td><td class="n">0.406</td><td class="n best">0.511</td><td class="n">0.822</td></tr>
+  <tr><td>2</td><td class="n">0.300</td><td class="n">0.213</td><td class="n">0.357</td><td class="n best">0.481</td><td class="n">0.810</td></tr>
+  <tr><td>3</td><td class="n">0.334</td><td class="n">0.229</td><td class="n">0.425</td><td class="n best">0.494</td><td class="n">0.831</td></tr>
+  <tr><td><b>Mean spellF1</b></td><td class="n">0.324</td><td class="n">0.224</td><td class="n">0.396</td><td class="n best">0.495</td><td class="n">0.821</td></tr>
+</table>
+<p>The dead-ball model alone, scored with the true team, gives a spellF1 of 0.766 / 0.768 / 0.808, against 0.705 / 0.632 / 0.653 for the "ball missing means dead" rule.
+Stoppage boundaries land within a second of the truth. Detection rates by restart type are: kick-off 94%, corner 88%, free kick 80%, throw-in 71% and goal kick 54%.</p>
+
+<h3>5.2 Provided match (label-free checks)</h3>
+<ul>
+  <li>Labels: H 51,750 · A 37,305 · D 69,802 · X 40,462. The X frames are exactly the ungraded frames.</li>
+  <li>412 possessions with a mean of 8.6 s, and 154 stoppages with a median of 8 s. 44% of graded frames are dead, against 31–42% in the sample games.</li>
+  <li>Where the ball is observed and the ball evidence is confident, the shape model agrees with it on 85.7% of frames, against 92–95% on the sample games. The shape signal transfers, though it is somewhat weaker on our noisier tracks.</li>
+</ul>
+
+<h3>5.3 Public 5-minute window (correctness check, run once)</h3>
+<table>
+  <tr><th>File</th><th class="n">spellF1</th><th class="n">macroF1</th><th class="n">Possessions (truth 17)</th></tr>
+  <tr><td>baseline_smooth50</td><td class="n">0.326</td><td class="n">0.621</td><td class="n">26</td></tr>
+  <tr><td>baseline_smooth125</td><td class="n">0.424</td><td class="n">0.581</td><td class="n">16</td></tr>
+  <tr><td><b>comtam</b></td><td class="n best">0.432</td><td class="n best">0.798</td><td class="n">20</td></tr>
+</table>
+<p>The window holds only 17 possessions, so gaps of this size in spellF1 are within noise. The file is valid and behaves sensibly. The real test is the full match.</p>
+
+<h2>6. Limitations</h2>
+<ul>
+  <li><b>Proximity is not control.</b> On observed-ball frames, <code>p_home</code> mostly measures who is nearest and for how long. A defender beside a passing attacker
+  counts as the nearer team for a moment, and a long pass reads as a loose ball until a receiver is close.</li>
+  <li><b>Team shape is a tendency, not a rule.</b> A high press or a counter-attack with few players can look like the other side's shape for a few seconds. On sample-game gap frames it is right about 84% of the time, and probably less on our match.</li>
+  <li><b>Track dropouts.</b> On 7% of graded frames a team has fewer than 7 tracked players, so those frames get no shape evidence. The shape model was fitted on clean sample tracks.</li>
+  <li><b>Restarts with movement.</b> Quick throw-ins and goal kicks, where players keep jogging, are the stoppages missed most often. A missed stoppage between two spells of the same team merges them.</li>
+  <li><b>Proxy labels.</b> Sample-game labels come from event data, while the target comes from corrected tracking, so stoppage edges and hand-over times are defined slightly differently.</li>
+  <li><b>First-order decoder.</b> It has no notion of which team usually restarts after a given stoppage, or of how long possessions tend to last.</li>
+  <li><b>Smart Tagging unused.</b> Its restart-team hints are likely useful, but we had no labelled source to calibrate them on.</li>
+</ul>
+<p><b>Next steps, by expected value:</b> separate control from proximity using ball speed and direction changes. Degrade the sample tracks like ours before fitting the shape model. Use Smart Tagging restart teams as priors once they can be calibrated. Make switch costs restart-aware. Try X inside long low-confidence stretches.</p>
+
+<h2>7. Reproducing the file</h2>
+<pre>git clone https://github.com/vuleanhduc1604/more-than-a-hack-2027 &amp;&amp; cd more-than-a-hack-2027
+# numpy==2.1.3, pandas==2.2.3 (tested on Python 3.13.5)
+pip install -r requirements-solution.txt
+# challenge bundle in data/ (or MTAH_DATA_DIR); videos named BAR-ATH_tactical.mp4, BAR-ATH_broadcast.mp4
+git clone https://github.com/metrica-sports/sample-data data/metrica-sample-data
+git -C data/metrica-sample-data checkout e706dd506b360d69d9d123d5b8026e7294b13996
+# writes evaluation/results/comtam.csv and validates it
+python starter/make_submission.py --name comtam
+shasum -a 256 evaluation/results/comtam.csv
+# expected: a8acfb2da9d9c563275fb8560c2e7431c934297ef350fd6b511cb5b023765b64</pre>
+<p>The pipeline is deterministic. The sample-game degradation uses fixed seeds, and nothing random is drawn after that. Three runs, one of them a cold
+rebuild with <code>cache/</code> removed, produced byte-identical files. The 56 unit tests pass with <code>python -m pytest tests -q</code>.
+<code>python starter/decode.py --tune</code> and <code>--tune-shape</code> rerun the grid searches behind the decoder constants.</p>
+
+<div class="note"><b>Compliance.</b> Labels come only from the algorithm above. There was no hand labelling or correction of this match in any form, and no frame-specific
+constants or rules. The match data was never sent to any cloud service. An AI coding assistant helped write code, and it saw only code, documentation and aggregate statistics, never raw match rows or video.</div>
+
+</body>
+</html>
