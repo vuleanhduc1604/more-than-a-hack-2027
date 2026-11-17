@@ -79,6 +79,83 @@ def plot_frame(dataset, frame_index, ax=None, length=PITCH_LENGTH, width=PITCH_W
     return ax
 
 
+def plot_frame_speeds(players, speeds, ball_raw, team_of_track, frame_index, ax=None,
+                      ball_xy=None, ball_conf=None, fps=25, length=105.3, width=68.0,
+                      step=2):
+    """One frame from the metre arrays of load_data, with each player's and the ball's speed.
+
+    Each dot is labelled with its speed in m/s and carries an arrow showing where it would be in
+    one second at its current velocity. The direction comes from positions `step` frames either
+    side, and the label from `speeds`. A tracked player with no speed in `speeds` (about 8% of
+    graded positions) is labelled from the positions instead, with a trailing "*".
+
+    The ball's speed is never in the data, so it is always derived from positions. When the ball
+    is missing and ball_xy (Section 2's filled ball) is given, the filled estimate is drawn as a
+    hollow circle with its ball_conf in the title, so a guessed position never passes for a seen one.
+    """
+    import matplotlib.pyplot as plt
+
+    ax = draw_pitch(ax, length, width)
+    n = len(players)
+    lo, hi = max(0, frame_index - step), min(n - 1, frame_index + step)
+    dt = (hi - lo) / float(fps)
+
+    def velocity(track):
+        """(n, 2) m/s from a central difference; NaN where either end is missing."""
+        return (track[hi] - track[lo]) / dt if dt > 0 else np.full_like(track[frame_index], np.nan)
+
+    pos = players[frame_index].astype(np.float64)
+    vel = velocity(players.astype(np.float64))
+    team = np.asarray(team_of_track)
+    present = ~np.isnan(pos[:, 0])
+    for side, colour in ((0, HOME_COLOUR), (1, AWAY_COLOUR)):
+        sel = present & (team == side)
+        ax.scatter(pos[sel, 0], pos[sel, 1], s=90, zorder=3, color=colour,
+                   edgecolors="black", linewidths=0.5)
+    for k in np.flatnonzero(present):
+        v = vel[k]
+        if not np.isnan(v[0]):
+            ax.annotate("", xy=pos[k] + v, xytext=pos[k], zorder=2,
+                        arrowprops=dict(arrowstyle="->", color="black", lw=0.9))
+        tracked = speeds[frame_index, k]
+        label = "{:.1f}".format(tracked) if not np.isnan(tracked) else (
+            "{:.1f}*".format(np.hypot(*v)) if not np.isnan(v[0]) else "?")
+        ax.text(pos[k, 0] + 0.8, pos[k, 1] + 0.8, label, fontsize=7, zorder=5, color="white",
+                bbox=dict(boxstyle="round,pad=0.15", fc="black", alpha=0.55, lw=0))
+
+    b = ball_raw[frame_index].astype(np.float64)
+    seen = not np.isnan(b[0])
+    note = ""
+    if seen:
+        bv = velocity(ball_raw.astype(np.float64))
+        ax.scatter(*b, s=70, zorder=6, color=BALL_COLOUR, edgecolors="black", linewidths=1.2)
+        if not np.isnan(bv[0]):
+            ax.annotate("", xy=b + bv, xytext=b, zorder=6,
+                        arrowprops=dict(arrowstyle="->", color="yellow", lw=1.5))
+            note = "   ball {:.1f} m/s".format(np.hypot(*bv))
+        else:
+            note = "   ball speed unknown (neighbours missing)"
+    elif ball_xy is not None and not np.isnan(ball_xy[frame_index, 0]):
+        est = ball_xy[frame_index].astype(np.float64)
+        ev = velocity(ball_xy.astype(np.float64))
+        ax.scatter(*est, s=90, zorder=6, facecolors="none", edgecolors="yellow", linewidths=1.8)
+        if not np.isnan(ev[0]):
+            ax.annotate("", xy=est + ev, xytext=est, zorder=6,
+                        arrowprops=dict(arrowstyle="->", color="yellow", lw=1.2, ls="--"))
+        conf = "" if ball_conf is None else ", conf {:.2f}".format(ball_conf[frame_index])
+        note = "   ball not tracked: hollow = filled estimate ({:.1f} m/s{})".format(
+            np.hypot(*ev) if not np.isnan(ev[0]) else float("nan"), conf)
+    else:
+        note = "   ball not tracked"
+
+    ax.set_title("frame {}{}".format(frame_index, note), fontsize=10)
+    ax.text(0, -2.6, "labels: speed m/s (* = from positions)   arrows: 1 s of travel",
+            fontsize=7, color="black")
+    ax.set_xlim(-4, length + 4)
+    ax.set_ylim(-4, width + 4)
+    return ax
+
+
 def animate_frames(dataset, start_frame, end_frame, length=PITCH_LENGTH, width=PITCH_WIDTH):
     """A matplotlib animation of a span of tracking frames.
 

@@ -1,0 +1,12 @@
+# Pinned dependencies of our solution (starter/make_submission.py and everything it imports).
+#
+# The pipeline is numpy + pandas only: the logistic regressions and the Viterbi decoder are written
+# in numpy, so no ML library version can change the output. These are the exact versions the
+# submitted file was generated with, under Python 3.13.5.
+#
+#   pip install -r requirements-solution.txt
+#   git clone https://github.com/metrica-sports/sample-data data/metrica-sample-data
+#   git -C data/metrica-sample-data checkout e706dd506b360d69d9d123d5b8026e7294b13996
+#   python starter/make_submission.py --name comtam
+numpy==2.1.3
+pandas==2.2.3

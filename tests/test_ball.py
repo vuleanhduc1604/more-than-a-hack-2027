@@ -193,3 +193,41 @@ def test_report_has_no_frame_level_output(case):
     assert lines[0].startswith("=== ball.py --report") and lines[-1] == "=== end ==="
     assert any("NaN in ball_xy on scored frames: 0" in line for line in lines)
     assert len(lines) < 40
+
+
+def test_mask_gaps_sit_inside_observations(case):
+    tracking, truth, _ = case
+    clean, _ = ball.remove_outliers(tracking["ball_raw"], truth["blocks"])
+    gaps = ball.mask_gaps(clean, truth["blocks"], tries=50)
+    assert gaps, "synthetic tracking should leave room for artificial gaps"
+    scored = scored_mask(len(clean), truth["blocks"])
+    for (start, end), nxt in zip(gaps, gaps[1:] + [(None, None)]):
+        assert scored[start - 1] and scored[end]
+        assert not np.isnan(clean[start - 1:end + 1, 0]).any()   # hidden frames and both ends
+        if nxt[0] is not None:
+            assert nxt[0] > end                                   # never touching
+    assert ball.mask_gaps(clean, truth["blocks"], tries=50) == gaps   # seeded
+
+
+def test_fill_error_shapes_and_short_gaps_beat_hold(case):
+    tracking, truth, _ = case
+    result = ball.fill_error(tracking, truth["blocks"])
+    n = sum(e - s for s, e in result["gaps"])
+    for key in ("gap_len", "err", "hold_err", "conf"):
+        assert result[key].shape == (n,)
+    assert np.isfinite(result["err"]).all()
+    short = result["gap_len"] <= 12
+    assert np.median(result["err"][short]) <= np.median(result["hold_err"][short])
+    assert ball._spearman(result["conf"], result["err"]) < 0
+
+
+def test_fill_error_report_has_no_frame_level_output(case):
+    tracking, truth, _ = case
+    lines = ball.fill_error_lines(ball.fill_error(tracking, truth["blocks"]))
+    assert lines[0].startswith("=== ball.py --fill-error") and lines[-1] == "=== end ==="
+    assert len(lines) < 30
+
+
+def test_spearman_handles_ties():
+    a = np.array([1.0, 1.0, 2.0, 3.0])
+    assert abs(ball._spearman(a, -a) + 1.0) < 1e-12
